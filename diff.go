@@ -60,6 +60,14 @@ func (w diffWriter) diff(av, bv reflect.Value) {
 
 	// numeric types, including bool
 	if at.Kind() < reflect.Array {
+		if !av.CanInterface() || !bv.CanInterface() {
+			a, b := av.Int(), bv.Int()
+			if !reflect.DeepEqual(a, b) {
+				w.printf("%d != %d", a, b)
+			}
+			return
+		}
+
 		a, b := av.Interface(), bv.Interface()
 		if a != b {
 			w.printf("%#v != %#v", a, b)
@@ -69,6 +77,14 @@ func (w diffWriter) diff(av, bv reflect.Value) {
 
 	switch at.Kind() {
 	case reflect.String:
+		if !av.CanInterface() || !bv.CanInterface() {
+			a, b := av.String(), bv.String()
+			if !reflect.DeepEqual(a, b) {
+				w.printf("%s != %s", a, b)
+			}
+			return
+		}
+
 		a, b := av.Interface(), bv.Interface()
 		if a != b {
 			w.printf("%q != %q", a, b)
@@ -89,9 +105,19 @@ func (w diffWriter) diff(av, bv reflect.Value) {
 	case reflect.Slice:
 		lenA := av.Len()
 		lenB := bv.Len()
+
+		switch {
+		case av.IsNil() && !bv.IsNil():
+			w.printf("nil != %v", bv.Interface())
+			return
+		case !av.IsNil() && bv.IsNil():
+			w.printf("%v != nil", av.Interface())
+			return
+		}
+
 		if lenA != lenB {
 			w.printf("%s[%d] != %s[%d]", av.Type(), lenA, bv.Type(), lenB)
-			break
+			return
 		}
 		for i := 0; i < lenA; i++ {
 			w.relabel(fmt.Sprintf("[%d]", i)).diff(av.Index(i), bv.Index(i))
